@@ -1,5 +1,33 @@
 from pathlib import Path
 
+import torch
+
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 
 DATA_PATH = PROJECT_ROOT / "data"
+
+DEVICE = (
+    torch.device("cuda")
+    if torch.cuda.is_available()
+    else torch.device("mps") if torch.mps.is_available() else torch.device("cpu")
+)
+
+OUT_ITERATION = 10
+RS_ITERATION = 12
+
+SEED = 1234
+
+TIMESTEP = 90
+T_MAX = 1216
+
+EPSILON = 1e-08
+
+DATA_MODE = "SPRINT"
+
+EXPERIMENT_NR = 1
+
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+DEEPHIT_DIR_PATH = PROJECT_ROOT / "deephit"
+DATA_PATH = PROJECT_ROOT / "data"
+RESULTS_PATH = PROJECT_ROOT / "results" / DATA_MODE / f"exp_{EXPERIMENT_NR}"
+GRAPHS_PATH = PROJECT_ROOT / "graphs" / DATA_MODE / f"exp_{EXPERIMENT_NR}"
