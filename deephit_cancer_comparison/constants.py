@@ -22,10 +22,8 @@ T_MAX = 227
 
 EPSILON = 1e-08
 
-DATA_MODE = "SPRINT"
-
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 DEEPHIT_DIR_PATH = PROJECT_ROOT / "deephit"
 DATA_PATH = PROJECT_ROOT / "data"
-
+RESULTS_PATH = PROJECT_ROOT / "results"
 GRAPH_PATH = PROJECT_ROOT / "graphs"

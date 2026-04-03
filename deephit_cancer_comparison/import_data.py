@@ -63,13 +63,13 @@ def f_get_fc_mask3(time, meas_time, num_Category):
     return mask
 
 
-def import_cohort_data(cancer_type: str = None):
-    if not cancer_type:
-        raise ValueError("Must provide cancer_type")
+def import_cohort_data(cancer_type: str = None, split: str = "train"):
+    if not cancer_type or not split:
+        raise ValueError("Must provide cancer_type and split")
     X_datafile = f"X_{cancer_type}.csv"
     y_datafile = f"y_{cancer_type}.csv"
 
-    CANCER_SPECIFIC_DATA_PATH = const.DATA_PATH / "cancer_specific_data" / cancer_type
+    CANCER_SPECIFIC_DATA_PATH = const.DATA_PATH / "cancer_specific_data" / cancer_type / split
 
     X = pd.read_csv(CANCER_SPECIFIC_DATA_PATH / X_datafile)
     y = pd.read_csv(CANCER_SPECIFIC_DATA_PATH / y_datafile)

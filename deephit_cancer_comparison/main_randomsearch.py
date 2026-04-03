@@ -17,7 +17,7 @@ from deephit_cancer_comparison.utils import (
 
 def main():
     if len(sys.argv) < 2:
-        raise ValueError("Must provide cancer_type")
+        raise ValueError("Must provide cancer_type and split")
 
     cancer_type = sys.argv[1]
 
@@ -34,7 +34,7 @@ def main():
     for out_itr in range(const.OUT_ITERATION):
         out_seed = random.getrandbits(32)
         set_seeds(out_seed)
-        itr_dir = const.RESULTS_PATH / treatment_arm / f"itr_{out_itr}"
+        itr_dir = const.RESULTS_PATH / cancer_type / f"itr_{out_itr}"
 
         if not os.path.exists(itr_dir):
             os.makedirs(itr_dir)
@@ -50,7 +50,7 @@ def main():
             inner_seed = random.getrandbits(32)
             set_seeds(inner_seed)
 
-            new_parser = get_random_hyperparameters(const.RESULTS_PATH / treatment_arm)
+            new_parser = get_random_hyperparameters(const.RESULTS_PATH / cancer_type)
 
             tmp_max = get_main.get_valid_performance(
                 DATA, MASK, new_parser, out_itr, EVAL_TIMES, MAX_VALUE=max_valid
@@ -68,7 +68,7 @@ def main():
     results_df = pd.DataFrame({"itr": [i for i in range(const.RS_ITERATION)], "scores": scores})
 
     results_df.to_csv(
-        const.RESULTS_PATH / treatment_arm / f"results_by_iteration_exp_{const.EXPERIMENT_NR}.csv",
+        const.RESULTS_PATH / cancer_type / f"{cancer_type}_results_by_iteration.csv",
         index=False,
     )
 

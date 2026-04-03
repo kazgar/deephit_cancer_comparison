@@ -18,18 +18,15 @@ from deephit_cancer_comparison.utils_eval import (
 
 def main():
     if len(sys.argv) < 2:
-        raise ValueError("Must provide treatment_arm")
+        raise ValueError("Must provide cancer_type")
 
-    treatment_arm = sys.argv[1]
+    cancer_type = sys.argv[1]
 
-    if const.DATA_MODE in impt.data_reading_functions.keys():
-        data_func = impt.data_reading_functions[const.DATA_MODE]
-        x_dim_train, DATA_train, MASK_train = data_func(treatment_arm, "train")
-        _, time_train, _ = DATA_train
-        x_dim_test, DATA_test, MASK_test = data_func(treatment_arm, "test")
-        EVAL_TIMES = list(range(const.TIMESTEP, int(np.max(time_train) * 1.2), const.TIMESTEP))
-    else:
-        raise ValueError("ERROR: DATA_MODE NOT FOUND!!!")
+    data_func = impt.import_cohort_data
+    x_dim_train, DATA_train, MASK_train = data_func(cancer_type, "train")
+    _, time_train, _ = DATA_train
+    x_dim_test, DATA_test, MASK_test = data_func(cancer_type, "test")
+    EVAL_TIMES = list(range(const.TIMESTEP, int(np.max(time_train) * 1.2), const.TIMESTEP))
 
     data_train, time_train, label_train = DATA_train
     mask1_train, mask2_train = MASK_train
@@ -47,17 +44,15 @@ def main():
     print(f"num_Category = {num_Category}")
     print(f"EVAL_TIMES = {EVAL_TIMES}")
 
-    if not os.path.exists(const.RESULTS_PATH / treatment_arm):
-        raise FileNotFoundError(
-            f"ERROR: RESULTS FOR {const.DATA_MODE} (EXP NR: {const.EXPERIMENT_NR} NOT FOUND!!!"
-        )
+    if not os.path.exists(const.RESULTS_PATH / cancer_type):
+        raise FileNotFoundError(f"ERROR: RESULTS FOR {cancer_type} NOT FOUND!!!")
 
     FINAL1 = np.zeros([num_Event_test, len(EVAL_TIMES), const.OUT_ITERATION])
     FINAL2 = np.zeros([num_Event_test, len(EVAL_TIMES), const.OUT_ITERATION])
 
     for out_itr in range(const.OUT_ITERATION):
         in_parser = load_logging(
-            const.RESULTS_PATH / treatment_arm / f"itr_{out_itr}" / "hyperparameters.txt"
+            const.RESULTS_PATH / cancer_type / f"itr_{out_itr}" / "hyperparameters.txt"
         )
         print("Hyperparameters being used:")
         for key, value in in_parser.items():
@@ -146,7 +141,7 @@ def main():
         model.load_state_dict(
             torch.load(
                 const.RESULTS_PATH
-                / treatment_arm
+                / cancer_type
                 / f"itr_{out_itr}"
                 / "models"
                 / f"model_itr_{out_itr}.pth",
@@ -200,22 +195,16 @@ def main():
 
         df1 = pd.DataFrame(result1, index=row_header, columns=col_header1)
         df1.to_csv(
-            const.RESULTS_PATH
-            / treatment_arm
-            / f"itr_{out_itr}"
-            / f"result_CINDEX_itr_{out_itr}.csv"
+            const.RESULTS_PATH / cancer_type / f"itr_{out_itr}" / f"result_CINDEX_itr_{out_itr}.csv"
         )
 
         df2 = pd.DataFrame(result2, index=row_header, columns=col_header2)
         df2.to_csv(
-            const.RESULTS_PATH
-            / treatment_arm
-            / f"itr_{out_itr}"
-            / f"result_BRIER_itr_{out_itr}.csv"
+            const.RESULTS_PATH / cancer_type / f"itr_{out_itr}" / f"result_BRIER_itr_{out_itr}.csv"
         )
 
         print("========================================================")
-        print(f"ITR: {out_itr + 1} DATA MODE: {const.DATA_MODE} (a:{alpha} b:{beta} c:{gamma})")
+        print(f"ITR: {out_itr + 1} CANCER TYE: {cancer_type} (a:{alpha} b:{beta} c:{gamma})")
         print(
             f"SharedNet Parameters: h_dim_shared = {h_dim_shared}, num_layers_shared = {num_layers_shared}, Non-Linearity: {active_fn}"
         )
@@ -232,13 +221,13 @@ def main():
 
     df1_mean = pd.DataFrame(np.mean(FINAL1, axis=2), index=row_header, columns=col_header1)
     df1_std = pd.DataFrame(np.std(FINAL1, axis=2), index=row_header, columns=col_header1)
-    df1_mean.to_csv(const.RESULTS_PATH / treatment_arm / "result_CINDEX_FINAL_MEAN.csv")
-    df1_std.to_csv(const.RESULTS_PATH / treatment_arm / "result_CINDEX_FINAL_STD.csv")
+    df1_mean.to_csv(const.RESULTS_PATH / cancer_type / "result_CINDEX_FINAL_MEAN.csv")
+    df1_std.to_csv(const.RESULTS_PATH / cancer_type / "result_CINDEX_FINAL_STD.csv")
 
     df2_mean = pd.DataFrame(np.mean(FINAL2, axis=2), index=row_header, columns=col_header2)
     df2_std = pd.DataFrame(np.std(FINAL2, axis=2), index=row_header, columns=col_header2)
-    df2_mean.to_csv(const.RESULTS_PATH / treatment_arm / "result_BRIER_FINAL_MEAN.csv")
-    df2_std.to_csv(const.RESULTS_PATH / treatment_arm / "result_BRIER_FINAL_STD.csv")
+    df2_mean.to_csv(const.RESULTS_PATH / cancer_type / "result_BRIER_FINAL_MEAN.csv")
+    df2_std.to_csv(const.RESULTS_PATH / cancer_type / "result_BRIER_FINAL_STD.csv")
 
     print("========================================================")
     print("- FINAL C-INDEX: ")

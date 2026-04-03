@@ -327,7 +327,7 @@ def get_test_performance(
                 max_test = tmp_test
                 print(f"Updated... Average C-index = {tmp_test:.4f}")
                 if max_test > MAX_VALUE:
-                    torch.save(model.state_dict(), os.path.join(save_path, f"best_model.pth"))
+                    torch.save(model.state_dict(), os.path.join(SAVE_PATH, f"best_model.pth"))
             else:
                 stop_flag += 1
 
