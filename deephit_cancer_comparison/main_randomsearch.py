@@ -16,18 +16,15 @@ from deephit_cancer_comparison.utils import (
 
 
 def main():
-    if len(sys.argv) < 3:
-        raise ValueError("Must provide treatment_arm and split")
+    if len(sys.argv) < 2:
+        raise ValueError("Must provide cancer_type")
 
-    treatment_arm, train_split = sys.argv[1], sys.argv[2]
+    cancer_type = sys.argv[1]
 
-    if const.DATA_MODE in impt.data_reading_functions.keys():
-        data_func = impt.data_reading_functions[const.DATA_MODE]
-        x_dim, DATA, MASK = data_func(treatment_arm, train_split)
-        _, time, _ = DATA
-        EVAL_TIMES = list(range(const.TIMESTEP, int(np.max(time) * 1.2), const.TIMESTEP))
-    else:
-        raise ValueError("ERROR: DATA_MODE NOT FOUND!!!")
+    data_func = impt.import_cohort_data
+    x_dim, DATA, MASK = data_func(cancer_type)
+    _, time, _ = DATA
+    EVAL_TIMES = list(range(const.TIMESTEP, int(np.max(time) * 1.2), const.TIMESTEP))
 
     data, time, label = DATA
     mask1, mask2 = MASK

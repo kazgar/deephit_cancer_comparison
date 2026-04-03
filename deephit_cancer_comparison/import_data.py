@@ -63,18 +63,20 @@ def f_get_fc_mask3(time, meas_time, num_Category):
     return mask
 
 
-def import_dataset_SPRINT(treatment_arm: str = None, split: str = True):
-    if not treatment_arm or not split:
-        raise ValueError("Must provide treatment_arm and split")
+def import_cohort_data(cancer_type: str = None):
+    if not cancer_type:
+        raise ValueError("Must provide cancer_type")
+    X_datafile = f"X_{cancer_type}.csv"
+    y_datafile = f"y_{cancer_type}.csv"
 
-    datafile = f"{treatment_arm}_{split}.csv"
+    CANCER_SPECIFIC_DATA_PATH = const.DATA_PATH / "cancer_specific_data" / cancer_type
 
-    in_filename = const.DATA_PATH / "data_sprint_split" / treatment_arm / datafile
-    df = pd.read_csv(in_filename, sep=",")
+    X = pd.read_csv(CANCER_SPECIFIC_DATA_PATH / X_datafile)
+    y = pd.read_csv(CANCER_SPECIFIC_DATA_PATH / y_datafile)
 
-    label = np.asarray(df[["label"]])
-    time = np.asarray(df[["time"]])
-    data = np.asarray(df.iloc[:, :-2])
+    label = np.asarray(y[["outcome"]])
+    time = np.asarray(y[["time"]])
+    data = np.asarray(X)
     data = f_get_Normalization(data, norm_mode="standard")
 
     num_Category = int(np.max(time) * 1.2)
@@ -90,8 +92,3 @@ def import_dataset_SPRINT(treatment_arm: str = None, split: str = True):
     MASK = (mask1, mask2)
 
     return DIM, DATA, MASK
-
-
-data_reading_functions = {
-    "SPRINT": import_dataset_SPRINT,
-}

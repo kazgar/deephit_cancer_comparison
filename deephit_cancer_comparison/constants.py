@@ -17,14 +17,12 @@ RS_ITERATION = 12
 
 SEED = 1234
 
-TIMESTEP = 90
-T_MAX = 1216
+TIMESTEP = 1
+T_MAX = 227
 
 EPSILON = 1e-08
 
 DATA_MODE = "SPRINT"
-
-EXPERIMENT_NR = 1
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 DEEPHIT_DIR_PATH = PROJECT_ROOT / "deephit"
