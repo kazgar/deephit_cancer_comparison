@@ -17,3 +17,6 @@ data/
 
 # Graphs
 graphs/
+
+# Scripts
+*.sh
