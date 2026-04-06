@@ -12,8 +12,8 @@ DEVICE = (
     else torch.device("mps") if torch.mps.is_available() else torch.device("cpu")
 )
 
-OUT_ITERATION = 10
-RS_ITERATION = 12
+OUT_ITERATION = 5
+RS_ITERATION = 10
 
 SEED = 1234
 

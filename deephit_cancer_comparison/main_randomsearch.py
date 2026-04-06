@@ -17,7 +17,7 @@ from deephit_cancer_comparison.utils import (
 
 def main():
     if len(sys.argv) < 2:
-        raise ValueError("Must provide cancer_type and split")
+        raise ValueError("Must provide cancer_type")
 
     cancer_type = sys.argv[1]
 
