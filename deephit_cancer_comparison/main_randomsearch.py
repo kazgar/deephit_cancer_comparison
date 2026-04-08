@@ -65,7 +65,7 @@ def main():
 
         scores.append(max_valid)
 
-    results_df = pd.DataFrame({"itr": [i for i in range(const.RS_ITERATION)], "scores": scores})
+    results_df = pd.DataFrame({"itr": [i for i in range(const.OUT_ITERATION)], "scores": scores})
 
     results_df.to_csv(
         const.RESULTS_PATH / cancer_type / f"{cancer_type}_results_by_iteration.csv",
