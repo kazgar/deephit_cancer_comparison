@@ -20,3 +20,6 @@ graphs/
 
 # Scripts
 *.sh
+
+# Results
+results/
