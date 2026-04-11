@@ -23,3 +23,6 @@ graphs/
 
 # Results
 results/
+
+# Slurm
+slurm.*
