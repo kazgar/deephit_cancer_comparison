@@ -109,6 +109,11 @@ def weighted_c_index(T_train, Y_train, Prediction, T_test, Y_test, Time):
 
 ### WEIGHTED BRIER SCORE: This accounts for the weighted average for unbiased estimation
 def weighted_brier_score(T_train, Y_train, Prediction, T_test, Y_test, Time):
+    T_test = np.ravel(T_test)
+    Y_test = np.ravel(Y_test)
+    T_train = np.ravel(T_train)
+    Y_train = np.ravel(Y_train)
+    Prediction = np.ravel(Prediction)
     G = CensoringProb(Y_train, T_train)
     N = len(Prediction)
 
@@ -120,15 +125,16 @@ def weighted_brier_score(T_train, Y_train, Prediction, T_test, Y_test, Time):
         tmp_idx2 = np.where(G[0, :] >= Time)[0]
 
         if len(tmp_idx1) == 0:
-            G1 = G[1, -1]
+            G1 = float(G[1, -1])
         else:
-            G1 = G[1, tmp_idx1[0]]
+            G1 = float(G[1, tmp_idx1[0]])
 
         if len(tmp_idx2) == 0:
-            G2 = G[1, -1]
+            G2 = float(G[1, -1])
         else:
-            G2 = G[1, tmp_idx2[0]]
+            G2 = float(G[1, tmp_idx2[0]])
 
+        print((1.0 - Y_tilde[i]) * float(Y_test[i]) / G1 + Y_tilde[i] / G2)
         W[i] = (1.0 - Y_tilde[i]) * float(Y_test[i]) / G1 + Y_tilde[i] / G2
 
     y_true = ((T_test <= Time) * Y_test).astype(float)
