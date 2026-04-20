@@ -47,7 +47,6 @@ def main():
 
     itr_path = cancer_dir / f"itr_{iteration}"
     model_path = itr_path / "models" / f"model_itr_{iteration}.pth"
-    print(model_path)
     if not model_path.exists():
         raise FileNotFoundError(f"No model file found for itr: {iteration}")
 
@@ -83,6 +82,19 @@ def main():
 
     _time_bins = np.arange(num_Category_test, dtype=float)
 
+    state_dict = torch.load(model_path, map_location=const.DEVICE)
+    ckpt_out_dim = state_dict["output_layer.bias"].shape[0]
+    num_Category_ckpt = ckpt_out_dim // num_Event_test
+
+    if num_Category_ckpt != num_Category_test:
+        print(
+            f"[num_Category mismatch] cohort={args.cancer_type}, itr={iteration}: "
+            f"data import gave {num_Category_test}, checkpoint expects "
+            f"{num_Category_ckpt}. Using checkpoint value for model construction."
+        )
+        num_Category_test = num_Category_ckpt
+        _time_bins = np.arange(num_Category_test, dtype=float)
+
     input_dims = {
         "x_dim": x_dim_test,
         "num_Event": num_Event_test,
@@ -99,11 +111,7 @@ def main():
     }
 
     model = DeepHit(input_dims, network_settings).to(const.DEVICE)
-
-    print(model_path)
-    print(args.cancer_type)
-
-    model.load_state_dict(torch.load(model_path, map_location=const.DEVICE))
+    model.load_state_dict(state_dict)
 
     data_test = torch.tensor(data_test, dtype=torch.float32).to(const.DEVICE)
 
