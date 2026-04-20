@@ -18,6 +18,7 @@ dependencies = [
     "pyarrow>=23.0.1",
     "scikit-learn>=1.8.0",
     "scikit-survival>=0.27.0",
+    "seaborn>=0.13.2",
     "shap>=0.51.0",
     "statsmodels>=0.14.6",
     "survshap>=0.4.2",

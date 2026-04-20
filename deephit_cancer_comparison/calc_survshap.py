@@ -27,8 +27,8 @@ def main():
         default="0",
         help="Which outer iterations to run. Defaults to 0.",
     )
+    parser.add_argument("--explain-n", type=int, default=200)
     parser.add_argument("--ref-n", type=int, default=100)
-    parser.add_argument("--explain-n", type=int, default=100)
     parser.add_argument(
         "--calculation-method",
         default="sampling",
@@ -36,8 +36,6 @@ def main():
     )
     args = parser.parse_args()
 
-    print(args.ref_n)
-    print(args.explain_n)
     set_seeds(const.SEED)
 
     cancer_dir = const.RESULTS_PATH / args.cancer_type
