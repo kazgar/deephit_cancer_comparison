@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import torch
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
@@ -21,6 +22,7 @@ SEED = 1234
 
 TIMESTEP = 1
 T_MAX = 227
+EVAL_TIMES = list(range(TIMESTEP, int(np.max(T_MAX) * 1.2), TIMESTEP))
 
 EPSILON = 1e-08
 
