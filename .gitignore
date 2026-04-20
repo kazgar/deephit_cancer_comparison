@@ -24,6 +24,9 @@ graphs/
 # Results
 results/
 
+# SurvShap Results
+survshap_results/
+
 # Slurm
 slurm.*
 

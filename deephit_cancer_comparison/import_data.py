@@ -79,7 +79,7 @@ def import_cohort_data(cancer_type: str = None, split: str = "train"):
     data = np.asarray(X)
     data = f_get_Normalization(data, norm_mode="standard")
 
-    num_Category = int(np.max(time) * 1.2)
+    num_Category = int(const.T_MAX * 1.2)
     num_Event = int(len(np.unique(label)) - 1)
 
     x_dim = data.shape[1]

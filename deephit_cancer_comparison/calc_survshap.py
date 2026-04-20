@@ -1,5 +1,4 @@
 import argparse
-from random import randint
 
 import numpy as np
 import pandas as pd
@@ -11,10 +10,9 @@ import deephit_cancer_comparison.constants as const
 import deephit_cancer_comparison.import_data as impt
 from deephit_cancer_comparison.class_deephit import DeepHit
 from deephit_cancer_comparison.survshap_utils import (
-    _deephit_predict_pmf,
-    _surv_on_grid,
     predict_cumulative_hazard_function,
     predict_survival_function,
+    save_survshap,
 )
 from deephit_cancer_comparison.utils import load_logging, set_seeds
 
@@ -26,12 +24,11 @@ def main():
     parser.add_argument("cancer_type", help="Cancer cohort name (e.g., 'breast').")
     parser.add_argument(
         "--iterations",
-        type=int,
-        nargs="+",
-        default=None,
-        help="Which outer iterations to run. Defaults to random.",
+        default="0",
+        help="Which outer iterations to run. Defaults to 0.",
     )
-    parser.add_argument("--n-background", type=int, default=25)
+    parser.add_argument("--ref-n", type=int, default=100)
+    parser.add_argument("--explain-n", type=int, default=100)
     parser.add_argument(
         "--calculation-method",
         default="sampling",
@@ -39,17 +36,20 @@ def main():
     )
     args = parser.parse_args()
 
+    print(args.ref_n)
+    print(args.explain_n)
     set_seeds(const.SEED)
 
     cancer_dir = const.RESULTS_PATH / args.cancer_type
 
     if args.iterations is None:
-        iteration = randint(0, 4)
+        iteration = 0
     else:
         iteration = args.iterations
 
     itr_path = cancer_dir / f"itr_{iteration}"
     model_path = itr_path / "models" / f"model_itr_{iteration}.pth"
+    print(model_path)
     if not model_path.exists():
         raise FileNotFoundError(f"No model file found for itr: {iteration}")
 
@@ -102,6 +102,9 @@ def main():
 
     model = DeepHit(input_dims, network_settings).to(const.DEVICE)
 
+    print(model_path)
+    print(args.cancer_type)
+
     model.load_state_dict(torch.load(model_path, map_location=const.DEVICE))
 
     data_test = torch.tensor(data_test, dtype=torch.float32).to(const.DEVICE)
@@ -109,7 +112,15 @@ def main():
     data_test_np = (
         data_test.detach().cpu().numpy() if torch.is_tensor(data_test) else np.asarray(data_test)
     )
-    feature_names = [f"x{i}" for i in range(data_test_np.shape[1])]
+
+    feature_names = pd.read_csv(
+        const.DATA_PATH
+        / "cancer_specific_data"
+        / f"{args.cancer_type}"
+        / "test"
+        / f"X_{args.cancer_type}.csv"
+    ).columns
+
     data_test_df = pd.DataFrame(data_test_np, columns=feature_names)
 
     event_bool = event_flat == const.PRIMARY_EVENT_LABEL
@@ -120,17 +131,15 @@ def main():
         dtype=[("event", "?"), ("time", "<f8")],
     )
 
-    REF_N = 100
     rng = np.random.default_rng(const.SEED)
     all_idx = np.arange(len(data_test_df))
 
-    ref_idx = rng.choice(all_idx, size=REF_N, replace=False)
+    ref_idx = rng.choice(all_idx, size=args.ref_n, replace=False)
     data_ref_df = data_test_df.iloc[ref_idx].reset_index(drop=True)
     test_y_ref = test_y[ref_idx]
 
-    EXPLAIN_N = 100
     remaining = np.setdiff1d(all_idx, ref_idx)
-    explain_idx = rng.choice(remaining, size=EXPLAIN_N, replace=False)
+    explain_idx = rng.choice(remaining, size=args.explain_n, replace=False)
     new_observations = data_test_df.iloc[explain_idx].reset_index(drop=True)
 
     deephit_exp = SurvivalModelExplainer(
@@ -151,21 +160,13 @@ def main():
         new_observations=new_observations,
     )
 
-    print("\n=== ModelSurvSHAP inspection ===")
-    print("attrs:", [a for a in dir(deephit_survshap) if not a.startswith("_")])
-    print("n individual explanations:", len(deephit_survshap.individual_explanations))
-    first = deephit_survshap.individual_explanations[0]
-    print("first expl attrs:", [a for a in dir(first) if not a.startswith("_")])
-    print("first.result.shape:", first.result.shape)
-    print("first.result.columns[:10]:", list(first.result.columns[:10]))
-    print("first.result.head():")
-    print(first.result.head())
-
-    print(first.result.groupby("variable_name").size().head())
-    print(first.result["B"].nunique(), first.result["B"].describe())
-
-    print("simplified_result.shape:", first.simplified_result.shape)
-    print(first.simplified_result.head())
+    save_survshap(
+        deephit_survshap=deephit_survshap,
+        explain_idx=explain_idx,
+        cohort=args.cancer_type,
+        iteration=iteration,
+        out_root=const.SURVSHAP_PATH,
+    )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,7 @@
+import pickle
+
 import numpy as np
+import pandas as pd
 import torch
 from sksurv.functions import StepFunction
 
@@ -47,3 +50,49 @@ def predict_cumulative_hazard_function(m, d):
     for i, sf in enumerate(preds):
         out[i] = StepFunction(x=sf.x, y=-np.log(np.clip(sf.y, 1e-8, 1.0)))
     return out
+
+
+def save_survshap(deephit_survshap, explain_idx, cohort, iteration, out_root):
+    survshap_dir = out_root / cohort
+    survshap_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(survshap_dir / "model_survshap.pkl", "wb") as f:
+        pickle.dump(deephit_survshap, f)
+
+    first = deephit_survshap.individual_explanations[0]
+    time_cols = [c for c in first.result.columns if isinstance(c, str) and c.startswith("t = ")]
+
+    tv_rows = []
+    for local_i, expl in enumerate(deephit_survshap.individual_explanations):
+        per_feature = expl.result.groupby("variable_name", as_index=False)[time_cols].mean()
+        per_feature["obs_id"] = int(explain_idx[local_i])
+        tv_rows.append(per_feature)
+
+    tv_df = pd.concat(tv_rows, ignore_index=True)
+    tv_df["cohort"] = cohort
+    tv_df["iteration"] = iteration
+    tv_df = tv_df[["cohort", "iteration", "obs_id", "variable_name"] + time_cols]
+    tv_df.to_parquet(survshap_dir / "survshap_timevarying.parquet", index=False)
+
+    scalar_rows = []
+    for local_i, expl in enumerate(deephit_survshap.individual_explanations):
+        df = expl.simplified_result.copy()
+        df["obs_id"] = int(explain_idx[local_i])
+        scalar_rows.append(df)
+
+    scalar_df = pd.concat(scalar_rows, ignore_index=True)
+    scalar_df["cohort"] = cohort
+    scalar_df["iteration"] = iteration
+    front = [
+        "cohort",
+        "iteration",
+        "obs_id",
+        "variable_name",
+        "variable_value",
+        "aggregated_change",
+    ]
+    scalar_df = scalar_df[front + [c for c in scalar_df.columns if c not in front]]
+    scalar_df.to_parquet(survshap_dir / "survshap_aggregated.parquet", index=False)
+
+    print(f"Saved SurvSHAP artifacts to {survshap_dir}")
+    return survshap_dir
