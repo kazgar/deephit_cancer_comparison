@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "ipykernel>=7.2.0",
+    "ipywidgets>=8.1.8",
     "kaleido>=1.2.0",
     "lifelines>=0.30.0",
     "matplotlib>=3.10.8",
@@ -16,6 +17,11 @@ dependencies = [
     "polars>=1.38.1",
     "pyarrow>=23.0.1",
     "scikit-learn>=1.8.0",
+    "scikit-survival>=0.27.0",
+    "shap>=0.51.0",
+    "statsmodels>=0.14.6",
+    "survshap>=0.4.2",
     "termcolor>=3.3.0",
     "torch>=2.10.0",
+    "tqdm>=4.67.3",
 ]

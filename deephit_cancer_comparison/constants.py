@@ -12,6 +12,8 @@ DEVICE = (
     else torch.device("mps") if torch.mps.is_available() else torch.device("cpu")
 )
 
+PRIMARY_EVENT_LABEL = 0
+
 OUT_ITERATION = 5
 RS_ITERATION = 10
 
