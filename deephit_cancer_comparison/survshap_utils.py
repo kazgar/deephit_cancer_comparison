@@ -7,6 +7,7 @@ from sksurv.functions import StepFunction
 
 import deephit_cancer_comparison.constants as const
 
+# Module-level grid used as a default argument in _surv_on_grid; evaluated once at import time
 times_grid = np.array(const.EVAL_TIMES, dtype=float)
 
 
@@ -15,29 +16,32 @@ def _deephit_predict_pmf(model, X):
     if torch.is_tensor(X):
         X_t = X.to(const.DEVICE).float()
     else:
-        X_np = np.ascontiguousarray(np.asarray(X))  # silences the read-only warning
+        X_np = np.ascontiguousarray(np.asarray(X))  # silences the read-only warning from survshap
         X_t = torch.as_tensor(X_np, dtype=torch.float32, device=const.DEVICE)
 
     with torch.no_grad():
         out = model(X_t)
-    return out.detach().cpu().numpy()
+    return out.detach().cpu().numpy()  # shape: (N, num_Event, num_Category)
 
 
 def _surv_on_grid(pmf_primary, target_times=times_grid, _time_bins=times_grid):
     cdf = np.cumsum(pmf_primary, axis=1)
     surv = 1.0 - cdf
+    # Map each target time to the nearest bin index using a right-side search then step back one
     idx = np.searchsorted(_time_bins, target_times, side="right") - 1
-    idx = np.clip(idx, 0, surv.shape[1] - 1)
-    return np.clip(surv[:, idx], 1e-8, 1.0)
+    idx = np.clip(idx, 0, surv.shape[1] - 1)  # guard against out-of-range target times
+    return np.clip(surv[:, idx], 1e-8, 1.0)  # floor at epsilon to keep log-transforms safe
 
 
 def predict_survival_function(m, d, PRIMARY_EVENT_IDX=const.PRIMARY_EVENT_LABEL):
     pmf = _deephit_predict_pmf(m, d)
     T = pmf.shape[-1]
     time_bins = np.arange(T, dtype=float)
+    # Slice out the primary event's PMF; other events are treated as competing risks
     pmf_primary = pmf[:, PRIMARY_EVENT_IDX, :]
     surv = np.clip(1.0 - np.cumsum(pmf_primary, axis=1), 1e-8, 1.0)
 
+    # survshap requires an array of StepFunction objects, one per patient
     out = np.empty(surv.shape[0], dtype=object)
     for i in range(surv.shape[0]):
         out[i] = StepFunction(x=time_bins, y=surv[i])
@@ -48,6 +52,7 @@ def predict_cumulative_hazard_function(m, d):
     preds = predict_survival_function(m, d)
     out = np.empty(len(preds), dtype=object)
     for i, sf in enumerate(preds):
+        # Nelson-Aalen approximation: H(t) = -log(S(t))
         out[i] = StepFunction(x=sf.x, y=-np.log(np.clip(sf.y, 1e-8, 1.0)))
     return out
 
@@ -56,16 +61,19 @@ def save_survshap(deephit_survshap, explain_idx, cohort, iteration, out_root):
     survshap_dir = out_root / cohort
     survshap_dir.mkdir(parents=True, exist_ok=True)
 
+    # Pickle the full explainer object so individual explanations can be re-examined later
     with open(survshap_dir / "model_survshap.pkl", "wb") as f:
         pickle.dump(deephit_survshap, f)
 
+    # Detect time columns from the first explanation; all explanations share the same schema
     first = deephit_survshap.individual_explanations[0]
     time_cols = [c for c in first.result.columns if isinstance(c, str) and c.startswith("t = ")]
 
     tv_rows = []
     for local_i, expl in enumerate(deephit_survshap.individual_explanations):
+        # expl.result has one row per (feature, SHAP sample); group to get per-feature mean curve
         per_feature = expl.result.groupby("variable_name", as_index=False)[time_cols].mean()
-        per_feature["obs_id"] = int(explain_idx[local_i])
+        per_feature["obs_id"] = int(explain_idx[local_i])  # map back to original test-set index
         tv_rows.append(per_feature)
 
     tv_df = pd.concat(tv_rows, ignore_index=True)
@@ -76,6 +84,7 @@ def save_survshap(deephit_survshap, explain_idx, cohort, iteration, out_root):
 
     scalar_rows = []
     for local_i, expl in enumerate(deephit_survshap.individual_explanations):
+        # simplified_result collapses the time axis into a single aggregated_change scalar per feature
         df = expl.simplified_result.copy()
         df["obs_id"] = int(explain_idx[local_i])
         scalar_rows.append(df)
@@ -83,6 +92,7 @@ def save_survshap(deephit_survshap, explain_idx, cohort, iteration, out_root):
     scalar_df = pd.concat(scalar_rows, ignore_index=True)
     scalar_df["cohort"] = cohort
     scalar_df["iteration"] = iteration
+    # Enforce a stable column order so parquet schema is consistent across cohorts
     front = [
         "cohort",
         "iteration",

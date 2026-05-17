@@ -26,6 +26,7 @@ def main():
     x_dim_train, DATA_train, MASK_train = data_func(cancer_type, "train")
     _, time_train, _ = DATA_train
     x_dim_test, DATA_test, MASK_test = data_func(cancer_type, "test")
+    # Eval horizon extends 20 % beyond observed max training time to cover late events
     EVAL_TIMES = list(range(const.TIMESTEP, int(np.max(time_train) * 1.2), const.TIMESTEP))
 
     data_train, time_train, label_train = DATA_train
@@ -39,6 +40,7 @@ def main():
     assert x_dim_train == x_dim_test, "Dimenions (train-test) don't match"
     assert num_Event_train == num_Event_test, "Number of events (train-test) don't match"
 
+    # Take the larger of the two to ensure the output layer covers both splits' time ranges
     num_Category = max(num_Category_train, num_Category_test)
 
     print(f"num_Category = {num_Category}")
@@ -47,8 +49,9 @@ def main():
     if not os.path.exists(const.RESULTS_PATH / cancer_type):
         raise FileNotFoundError(f"ERROR: RESULTS FOR {cancer_type} NOT FOUND!!!")
 
-    FINAL1 = np.zeros([num_Event_test, len(EVAL_TIMES), const.OUT_ITERATION])
-    FINAL2 = np.zeros([num_Event_test, len(EVAL_TIMES), const.OUT_ITERATION])
+    # Accumulators: shape (num_Event, num_eval_times, num_iterations) for cross-iteration averaging
+    FINAL1 = np.zeros([num_Event_test, len(EVAL_TIMES), const.OUT_ITERATION])  # C-index
+    FINAL2 = np.zeros([num_Event_test, len(EVAL_TIMES), const.OUT_ITERATION])  # Brier score
 
     for out_itr in range(const.OUT_ITERATION):
         in_parser = load_logging(
@@ -74,6 +77,7 @@ def main():
         alpha = in_parser["alpha"]
         beta = in_parser["beta"]
         gamma = in_parser["gamma"]
+        # Compact string tag encoding the loss weights, e.g. "a05b10c02"
         parameter_name = f"a{10 * alpha:02.0f}b{10 * beta:02.0f}c{10 * gamma:02.0f}"
 
         input_dims = {
@@ -91,6 +95,7 @@ def main():
             "initial_W": initial_W,
         }
 
+        # Fix seed before model init so weight initialisation is deterministic across iterations
         set_seeds(const.SEED)
         model = DeepHit(input_dims, network_settings).to(const.DEVICE)
 
@@ -138,6 +143,7 @@ def main():
             model.num_layers_CS == network_settings["num_layers_CS"]
         ), f"num_layers_CS mismatch: {model.num_layers_CS} != {network_settings['num_layers_CS']}"
 
+        # map_location ensures the checkpoint loads correctly regardless of where it was saved
         model.load_state_dict(
             torch.load(
                 const.RESULTS_PATH
@@ -166,9 +172,12 @@ def main():
                 print("ERROR: evaluation horizon is out of range")
                 result1[:, t] = result2[:, t] = -1
             else:
+                # Cumulative incidence: sum predicted hazard over all bins up to eval_horizon
                 risk = np.sum(pred[:, :, : (eval_horizon + 1)].cpu().numpy(), axis=2)
 
                 for k in range(num_Event_test):
+                    # Event labels are 1-indexed: event k corresponds to label value k+1
+                    # Weighted metrics use training set as the reference distribution
                     result1[k, t] = weighted_c_index(
                         time_train,
                         (label_train[:, 0] == k + 1).astype(int).reshape(-1),
@@ -219,6 +228,7 @@ def main():
         print(df2)
         print("========================================================")
 
+    # Reduce along axis=2 (iterations) to produce cross-iteration mean and std per event/horizon
     df1_mean = pd.DataFrame(np.mean(FINAL1, axis=2), index=row_header, columns=col_header1)
     df1_std = pd.DataFrame(np.std(FINAL1, axis=2), index=row_header, columns=col_header1)
     df1_mean.to_csv(const.RESULTS_PATH / cancer_type / "result_CINDEX_FINAL_MEAN.csv")

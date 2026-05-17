@@ -14,8 +14,11 @@ def c_index(Prediction, Time_survival, Death, Time):
     - Time            : time of evaluation (time-horizon when evaluating C-index)
     """
     N = len(Prediction)
+    # A[i,j] = 1 if patient i's observed time is shorter than patient j's (i is "worse off")
     A = np.zeros((N, N))
+    # Q[i,j] = 1 if patient i's predicted risk is higher than patient j's (concordant direction)
     Q = np.zeros((N, N))
+    # N_t[i,:] = 1 if patient i had the event before or at the evaluation horizon
     N_t = np.zeros((N, N))
     Num = 0
     Den = 0
@@ -27,6 +30,7 @@ def c_index(Prediction, Time_survival, Death, Time):
         if Time_survival[i] <= Time and Death[i] == 1:
             N_t[i, :] = 1
 
+    # Num = concordant pairs among comparable pairs; Den = total comparable pairs
     Num = np.sum(((A) * N_t) * Q)
     Den = np.sum((A) * N_t)
 
@@ -41,6 +45,7 @@ def c_index(Prediction, Time_survival, Death, Time):
 ### BRIER-SCORE
 def brier_score(Prediction, Time_survival, Death, Time):
     len(Prediction)
+    # y_true = 1 if the patient had the event at or before Time, 0 otherwise
     y_true = ((Time_survival <= Time) * Death).astype(float)
     return np.mean((Prediction - y_true) ** 2)
 
@@ -51,12 +56,14 @@ def CensoringProb(Y, T):
     Y = Y.reshape([-1])  # (N,) - np array
 
     kmf = KaplanMeierFitter()
+    # Treat censoring as the event of interest: Y==0 means censored, so flip the indicator
     kmf.fit(
         T, event_observed=(Y == 0).astype(int)
     )  # Censoring prob = survival probability of event "censoring"
+    # G[0,:] = time points, G[1,:] = censoring survival probabilities G(t)
     G = np.asarray(kmf.survival_function_.reset_index()).transpose()
 
-    # Fill 0 with ZoH (to prevent NaN values)
+    # Zero-order hold: replace any zero probability with the last non-zero value to prevent division by zero
     G[1, G[1, :] == 0] = G[1, G[1, :] != 0][-1]
 
     return G
@@ -85,13 +92,15 @@ def weighted_c_index(T_train, Y_train, Prediction, T_test, Y_test, Time):
     for i in range(N):
         tmp_idx = np.where(G[0, :] >= T_test[i])[0]
 
+        # IPCW weight: W = 1/G(T_i)^2; fall back to last known G if T_i exceeds observed range
         if len(tmp_idx) == 0:
             W = (1.0 / G[1, -1]) ** 2
         else:
             W = (1.0 / G[1, tmp_idx[0]]) ** 2
 
+        # Incorporate the censoring weight into the comparable-pair indicator
         A[i, np.where(T_test[i] < T_test)] = 1.0 * W
-        Q[i, np.where(Prediction[i] > Prediction)] = 1.0  # Give weights
+        Q[i, np.where(Prediction[i] > Prediction)] = 1.0
 
         if T_test[i] <= Time and Y_test[i] == 1:
             N_t[i, :] = 1.0
@@ -118,22 +127,27 @@ def weighted_brier_score(T_train, Y_train, Prediction, T_test, Y_test, Time):
     N = len(Prediction)
 
     W = np.zeros(len(Y_test))
+    # Y_tilde = 1 if patient survived past the evaluation horizon, 0 otherwise
     Y_tilde = (T_test > Time).astype(float)
 
     for i in range(N):
         tmp_idx1 = np.where(G[0, :] >= T_test[i])[0]
         tmp_idx2 = np.where(G[0, :] >= Time)[0]
 
+        # G1 = G(T_i): censoring probability at the patient's observed time
         if len(tmp_idx1) == 0:
             G1 = float(G[1, -1])
         else:
             G1 = float(G[1, tmp_idx1[0]])
 
+        # G2 = G(Time): censoring probability at the evaluation horizon
         if len(tmp_idx2) == 0:
             G2 = float(G[1, -1])
         else:
             G2 = float(G[1, tmp_idx2[0]])
 
+        # IPCW weight formula (Graf et al. 1999):
+        # events before Time are weighted by 1/G(T_i); survivors past Time by 1/G(Time)
         print((1.0 - Y_tilde[i]) * float(Y_test[i]) / G1 + Y_tilde[i] / G2)
         W[i] = (1.0 - Y_tilde[i]) * float(Y_test[i]) / G1 + Y_tilde[i] / G2
 

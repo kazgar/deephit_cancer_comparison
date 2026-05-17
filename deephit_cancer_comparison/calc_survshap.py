@@ -50,6 +50,7 @@ def main():
     if not model_path.exists():
         raise FileNotFoundError(f"No model file found for itr: {iteration}")
 
+    # Reconstruct architecture from the same hyperparameter log used during training
     in_parser = load_logging(itr_path / "hyperparameters.txt")
 
     h_dim_shared = in_parser["h_dim_shared"]
@@ -65,6 +66,8 @@ def main():
 
     initial_W = torch.nn.init.xavier_normal_
 
+    # Alpha, beta, gamma are not needed for inference but validated here to ensure
+    # the hyperparameter file is complete and from a correctly trained run
     in_parser["alpha"]
     in_parser["beta"]
     in_parser["gamma"]
@@ -73,16 +76,19 @@ def main():
     x_dim_test, DATA_test, MASK_test = data_func(args.cancer_type, "test")
     data_test, time_test, label_test = DATA_test
 
+    # Flatten from (N,1) to (N,) for downstream indexing
     event_flat = label_test.flatten().astype(int)
     time_flat = time_test.flatten().astype(int)
 
     mask1_test, mask2_test = MASK_test
+    # mask1 shape is (N, num_Event, num_Category); extract event/category counts
     _, num_Event_test, num_Category_test = mask1_test.shape
-    list(range(const.TIMESTEP, int(np.max(const.T_MAX) * 1.2), const.TIMESTEP))
 
+    # Discrete time bins: one bin per category index (0, 1, ..., num_Category-1)
     _time_bins = np.arange(num_Category_test, dtype=float)
 
     state_dict = torch.load(model_path, map_location=const.DEVICE)
+    # Infer num_Category from checkpoint output size to guard against data/model drift
     ckpt_out_dim = state_dict["output_layer.bias"].shape[0]
     num_Category_ckpt = ckpt_out_dim // num_Event_test
 
@@ -92,6 +98,7 @@ def main():
             f"data import gave {num_Category_test}, checkpoint expects "
             f"{num_Category_ckpt}. Using checkpoint value for model construction."
         )
+        # Trust the checkpoint over the data import so load_state_dict succeeds
         num_Category_test = num_Category_ckpt
         _time_bins = np.arange(num_Category_test, dtype=float)
 
@@ -115,10 +122,12 @@ def main():
 
     data_test = torch.tensor(data_test, dtype=torch.float32).to(const.DEVICE)
 
+    # survshap expects numpy arrays, not tensors
     data_test_np = (
         data_test.detach().cpu().numpy() if torch.is_tensor(data_test) else np.asarray(data_test)
     )
 
+    # Read column names from the raw CSV so the explainer reports human-readable feature names
     feature_names = pd.read_csv(
         const.DATA_PATH
         / "cancer_specific_data"
@@ -129,6 +138,7 @@ def main():
 
     data_test_df = pd.DataFrame(data_test_np, columns=feature_names)
 
+    # SurvivalModelExplainer requires a structured array with boolean event and float time fields
     event_bool = event_flat == const.PRIMARY_EVENT_LABEL
     time_f64 = time_flat.astype(np.float64)
 
@@ -140,10 +150,12 @@ def main():
     rng = np.random.default_rng(const.SEED)
     all_idx = np.arange(len(data_test_df))
 
+    # Reference set: background distribution used by SHAP to marginalise features
     ref_idx = rng.choice(all_idx, size=args.ref_n, replace=False)
     data_ref_df = data_test_df.iloc[ref_idx].reset_index(drop=True)
     test_y_ref = test_y[ref_idx]
 
+    # Explanation set drawn from the remaining indices to avoid overlap with the reference set
     remaining = np.setdiff1d(all_idx, ref_idx)
     explain_idx = rng.choice(remaining, size=args.explain_n, replace=False)
     new_observations = data_test_df.iloc[explain_idx].reset_index(drop=True)
@@ -161,6 +173,7 @@ def main():
         random_state=const.SEED,
     )
 
+    # Compute time-dependent SHAP values for each observation in new_observations
     deephit_survshap.fit(
         deephit_exp,
         new_observations=new_observations,

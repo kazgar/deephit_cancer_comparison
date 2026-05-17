@@ -11,7 +11,7 @@ def set_seeds(seed):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
-        torch.cuda.manual_seed_all(seed)
+        torch.cuda.manual_seed_all(seed)  # covers all GPUs in multi-GPU setups
 
 
 def save_logging(dictionary, log_name):
@@ -33,6 +33,7 @@ def load_logging(filename):
 
         for line in f.readlines():
             if ":" in line:
+                # maxsplit=1 preserves colons inside values such as file paths
                 key, value = line.strip().split(":", 1)
                 if value.isdigit():
                     data[key] = int(value)
@@ -57,16 +58,16 @@ def get_random_hyperparameters(out_path):
     new_parser = {
         "mb_size": random.choice(SET_BATCH_SIZE),
         "iteration": 50000,
-        "keep_prob": 0.6,
-        "lr_train": 1e-4,
+        "keep_prob": 0.6,  # dropout keep probability; fixed, not searched
+        "lr_train": 1e-4,  # learning rate; fixed, not searched
         "h_dim_shared": random.choice(SET_NODES),
         "h_dim_CS": random.choice(SET_NODES),
         "num_layers_shared": random.choice(SET_LAYERS),
         "num_layers_CS": random.choice(SET_LAYERS),
         "active_fn": random.choice(SET_ACTIVATION_FN),
-        "alpha": 1.0,
-        "beta": random.choice(SET_BETA),
-        "gamma": 0,
+        "alpha": 1.0,  # log-likelihood weight; fixed at 1
+        "beta": random.choice(SET_BETA),  # ranking loss weight; only loss weight that is searched
+        "gamma": 0,  # calibration loss weight; disabled
         "out_path": out_path,
     }
 
@@ -80,6 +81,6 @@ def get_hyperparameters(path):
             hyperparams = dir_path / "hyperparameters_log.txt"
             with open(hyperparams) as f:
                 hp_values = {hp: value for line in f for hp, value in [line.rstrip().split(":")]}
-                hp_values.pop("out_path")
+                hp_values.pop("out_path")  # out_path is a runtime path, not a model hyperparameter
                 hyper_dict[os.path.basename(dir_path)] = hp_values
     return hyper_dict

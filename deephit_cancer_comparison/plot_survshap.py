@@ -13,10 +13,12 @@ import deephit_cancer_comparison.constants as const
 
 
 def load_all_cohorts(results_root: Path, artifact: str) -> pd.DataFrame:
+    # Pattern matches one level deep: <results_root>/<cohort>/<artifact>.parquet
     paths = list(results_root.glob(f"*/{artifact}.parquet"))
     if not paths:
         raise FileNotFoundError(f"No {artifact}.parquet files found under {results_root}")
     frames = [pd.read_parquet(p) for p in paths]
+    # ignore_index prevents duplicate row indices from the per-cohort frames
     return pd.concat(frames, ignore_index=True)
 
 
@@ -98,6 +100,7 @@ def plot_cohort_top_features(
 
     summary = (
         cohort_data.groupby(feature_col)[value_col]
+        # Named lambdas are immediately renamed; pandas auto-names them "<lambda_0/1>"
         .agg(["median", "mean", lambda s: s.quantile(0.25), lambda s: s.quantile(0.75)])
         .rename(columns={"<lambda_0>": "q25", "<lambda_1>": "q75"})
         .sort_values("mean", ascending=False)
@@ -109,13 +112,14 @@ def plot_cohort_top_features(
     ax.barh(
         y_pos,
         summary["mean"],
+        # xerr expects [left_errors, right_errors]: distances from mean to q25 and q75
         xerr=[summary["mean"] - summary["q25"], summary["q75"] - summary["mean"]],
         color="steelblue",
         alpha=0.8,
     )
     ax.set_yticks(y_pos)
     ax.set_yticklabels(summary.index)
-    ax.invert_yaxis()
+    ax.invert_yaxis()  # puts the highest-ranked feature at the top of the chart
     ax.set_xlabel("Mean |SurvSHAP(t)| aggregated (IQR error bars)")
     ax.set_title(f"Top {top_k} features — {cohort}")
     plt.tight_layout()
@@ -151,9 +155,10 @@ def plot_timevarying_feature(
     if sub.empty:
         raise ValueError(f"No data for cohort={cohort}, feature={feature}")
 
+    # Columns named "t = <float>" hold the per-time-bin SurvSHAP values; extract their order
     time_cols = [c for c in sub.columns if isinstance(c, str) and c.startswith("t = ")]
     times = np.array([float(c.removeprefix("t = ")) for c in time_cols])
-    values = sub[time_cols].to_numpy()  # (n_patients, n_times)
+    values = sub[time_cols].to_numpy()  # shape: (n_patients, n_times)
 
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -163,6 +168,7 @@ def plot_timevarying_feature(
 
     ax.plot(times, values.mean(axis=0), color="darkblue", linewidth=2.2, label="Cohort mean")
 
+    # Zero reference line: attribution above/below zero means the feature increases/decreases risk
     ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
     ax.set_xlabel("Time (bin index)")
     ax.set_ylabel(r"SurvSHAP$_t(x, d)$")
@@ -198,10 +204,12 @@ def plot_feature_across_cohorts(
 
     fig, ax = plt.subplots(figsize=figsize)
     cohorts = sorted(sub["cohort"].unique())
+    # tab10 gives up to 10 perceptually distinct colours; linspace spreads them evenly
     colors = plt.cm.tab10(np.linspace(0, 1, len(cohorts)))
 
     for cohort, color in zip(cohorts, colors):
         cohort_data = sub[sub["cohort"] == cohort]
+        # .values converts the Series to a plain array so ax.plot receives consistent types
         mean_curve = cohort_data[time_cols].mean(axis=0).values
         ax.plot(times, mean_curve, label=cohort, color=color, linewidth=1.8)
 
@@ -235,6 +243,7 @@ def main():
             save_path=Path(f"figures/top_features_{cohort}.pdf"),
         )
 
+    # Illustrative calls — swap cohort/feature arguments to generate other plots
     plot_timevarying_feature(
         tv_df,
         cohort="breast",
