@@ -26,15 +26,9 @@ deephit_cancer_comparison/          # main Python package
 ├── summarize_results.py            # test-set evaluation (C-index, Brier score)
 ├── extract_performance.py          # aggregate per-cohort metrics into performance.csv
 ├── calc_survshap.py                # SurvSHAP(t) computation for trained models
-├── plot_survshap.py                # feature importance visualization
 ├── survshap_utils.py               # SurvSHAP helper functions (predict wrappers, I/O)
 ├── utils.py                        # general utilities (seeding, hyperparameter sampling, logging)
 └── utils_eval.py                   # weighted C-index and weighted Brier score implementations
-
-data/                               # SEER data — not included (see Dataset section above)
-results/                            # trained model checkpoints and per-cohort CSV metrics
-survshap_results/                   # SurvSHAP(t) parquet artifacts (one file per cohort/iteration)
-graphs/                             # exported figures (feature importance, performance plots)
 ```
 
 ## Workflow
@@ -71,6 +65,11 @@ or with pip:
 
 ```
 pip install -r requirements.txt
+```
+
+*Remember to run:*:
+```
+uv pip install -e .
 ```
 
 The package uses GPU acceleration automatically when CUDA or Apple MPS is available; it falls back to CPU otherwise.
