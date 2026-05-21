@@ -32,3 +32,6 @@ slurm.*
 
 # macOS
 .DS_Store
+
+# zips
+*.zip
