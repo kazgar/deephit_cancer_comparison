@@ -67,7 +67,7 @@ or with pip:
 pip install -r requirements.txt
 ```
 
-*Remember to run:*:
+**Remember to run:**
 ```
 uv pip install -e .
 ```
