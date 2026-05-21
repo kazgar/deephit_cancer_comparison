@@ -10,31 +10,31 @@ The study uses data from the **SEER (Surveillance, Epidemiology, and End Results
 
 The ten cancer cohorts used are: Breast, Corpus (Uteri), Kidney Parenchyma, Melanoma of the Skin, Lung & Bronchus, Pancreas, Prostate, Thyroid, Urinary Bladder, and Colorectal (Colon & Rectum).
 
-Once access is granted, place cohort data under `data/cancer_specific_data/<cancer_type>/` with `train/` and `test/` subdirectories, each containing `X_<cancer_type>.csv` (features) and `y_<cancer_type>.csv` (outcome + time columns).
-
 ## Repository structure
 
 ```
-deephit_cancer_comparison/     # main Python package
-├── constants.py               # global paths, seeds, and time-grid settings
-├── class_deephit.py           # DeepHit model (shared + cause-specific sub-networks)
-├── import_data.py             # data loading, normalization, and mask construction
-├── get_main.py                # training loop with early stopping
-├── main_randomsearch.py       # outer CV + random hyperparameter search entrypoint
-├── summarize_results.py       # test-set evaluation (C-index, Brier score)
-├── extract_performance.py     # aggregate per-cohort metrics into performance.csv
-├── calc_survshap.py           # SurvSHAP(t) computation for trained models
-├── plot_survshap.py           # feature importance visualization
-├── survshap_utils.py          # SurvSHAP helper functions (predict wrappers, I/O)
-├── utils.py                   # general utilities (seeding, hyperparameter sampling, logging)
-└── utils_eval.py              # weighted C-index and weighted Brier score implementations
+deephit_cancer_comparison/          # main Python package
+├── notebooks/
+│   ├── seer_data_parsing.ipynb     # parse raw SEER data: filter, encode, and split into per-cohort train/test CSVs
+│   ├── plot_performance.ipynb      # plot per-cohort C-index and Brier score curves and cross-cohort bar charts
+│   └── plot_survshap.ipynb         # load SurvSHAP(t) artifacts and produce feature importance heatmaps and bar charts
+├── constants.py                    # global paths, seeds, and time-grid settings
+├── class_deephit.py                # DeepHit model (shared + cause-specific sub-networks)
+├── import_data.py                  # data loading, normalization, and mask construction
+├── get_main.py                     # training loop with early stopping
+├── main_randomsearch.py            # outer CV + random hyperparameter search entrypoint
+├── summarize_results.py            # test-set evaluation (C-index, Brier score)
+├── extract_performance.py          # aggregate per-cohort metrics into performance.csv
+├── calc_survshap.py                # SurvSHAP(t) computation for trained models
+├── plot_survshap.py                # feature importance visualization
+├── survshap_utils.py               # SurvSHAP helper functions (predict wrappers, I/O)
+├── utils.py                        # general utilities (seeding, hyperparameter sampling, logging)
+└── utils_eval.py                   # weighted C-index and weighted Brier score implementations
 
-data/                          # SEER data — not included (see Dataset section above)
-results/                       # trained model checkpoints and per-cohort CSV metrics
-survshap_results/              # SurvSHAP(t) parquet artifacts (one file per cohort/iteration)
-graphs/                        # exported figures (feature importance, performance plots)
-notebooks/
-└── plot_survshap.ipynb        # interactive SurvSHAP(t) exploration notebook
+data/                               # SEER data — not included (see Dataset section above)
+results/                            # trained model checkpoints and per-cohort CSV metrics
+survshap_results/                   # SurvSHAP(t) parquet artifacts (one file per cohort/iteration)
+graphs/                             # exported figures (feature importance, performance plots)
 ```
 
 ## Workflow
